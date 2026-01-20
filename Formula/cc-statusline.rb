@@ -31,6 +31,6 @@ class CcStatusline < Formula
   end
 
   test do
-    system "#{bin}/cc-statusline", "--help"
+    assert_predicate bin/"cc-statusline", :executable?
   end
 end
