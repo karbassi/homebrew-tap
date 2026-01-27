@@ -1,0 +1,144 @@
+name: Auto-update Formulas
+
+on:
+  schedule:
+    # Run daily at 9am UTC
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-formulas:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Update cc-statusline
+        id: cc-statusline
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          FORMULA="Formula/cc-statusline.rb"
+          REPO="karbassi/cc-status-line"
+
+          # Get current version from formula
+          CURRENT_VERSION=$(grep -E '^  version "' "$FORMULA" | sed 's/.*"\(.*\)".*/\1/')
+          echo "Current version: $CURRENT_VERSION"
+
+          # Get latest release version from GitHub
+          LATEST_VERSION=$(gh api "repos/$REPO/releases/latest" --jq '.tag_name' | sed 's/^v//')
+          echo "Latest version: $LATEST_VERSION"
+
+          if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
+            echo "Already up to date"
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Updating from $CURRENT_VERSION to $LATEST_VERSION"
+
+          # Download each artifact and compute SHA256
+          BASE_URL="https://github.com/$REPO/releases/download/v$LATEST_VERSION"
+
+          echo "Downloading macos-arm64..."
+          curl -sL "$BASE_URL/cc-statusline-macos-arm64.tar.gz" -o /tmp/macos-arm64.tar.gz
+          SHA_MACOS_ARM=$(sha256sum /tmp/macos-arm64.tar.gz | cut -d' ' -f1)
+          echo "macos-arm64: $SHA_MACOS_ARM"
+
+          echo "Downloading macos-x86_64..."
+          curl -sL "$BASE_URL/cc-statusline-macos-x86_64.tar.gz" -o /tmp/macos-x86_64.tar.gz
+          SHA_MACOS_INTEL=$(sha256sum /tmp/macos-x86_64.tar.gz | cut -d' ' -f1)
+          echo "macos-x86_64: $SHA_MACOS_INTEL"
+
+          echo "Downloading linux-arm64..."
+          curl -sL "$BASE_URL/cc-statusline-linux-arm64.tar.gz" -o /tmp/linux-arm64.tar.gz
+          SHA_LINUX_ARM=$(sha256sum /tmp/linux-arm64.tar.gz | cut -d' ' -f1)
+          echo "linux-arm64: $SHA_LINUX_ARM"
+
+          echo "Downloading linux-x86_64..."
+          curl -sL "$BASE_URL/cc-statusline-linux-x86_64.tar.gz" -o /tmp/linux-x86_64.tar.gz
+          SHA_LINUX_INTEL=$(sha256sum /tmp/linux-x86_64.tar.gz | cut -d' ' -f1)
+          echo "linux-x86_64: $SHA_LINUX_INTEL"
+
+          # Update version
+          sed -i "s/version \"$CURRENT_VERSION\"/version \"$LATEST_VERSION\"/" "$FORMULA"
+
+          # Update SHA256 hashes using Ruby to parse and update the formula
+          ruby <<RUBY
+          formula_path = "$FORMULA"
+          shas = {
+            macos_arm: "$SHA_MACOS_ARM",
+            macos_intel: "$SHA_MACOS_INTEL",
+            linux_arm: "$SHA_LINUX_ARM",
+            linux_intel: "$SHA_LINUX_INTEL"
+          }
+
+          content = File.read(formula_path)
+          lines = content.lines
+          in_macos = false
+          in_linux = false
+          in_arm = false
+          in_intel = false
+
+          lines.each_with_index do |line, i|
+            in_macos = true if line.include?("on_macos")
+            in_linux = true if line.include?("on_linux")
+            in_macos = false if in_linux
+
+            in_arm = true if line.include?("on_arm")
+            in_intel = true if line.include?("on_intel")
+            in_arm = false if in_intel
+
+            if line.include?("sha256") && line =~ /sha256 "[a-f0-9]+"/
+              sha = if in_macos && in_arm
+                shas[:macos_arm]
+              elsif in_macos && in_intel
+                shas[:macos_intel]
+              elsif in_linux && in_arm
+                shas[:linux_arm]
+              elsif in_linux && in_intel
+                shas[:linux_intel]
+              end
+              lines[i] = line.sub(/sha256 "[a-f0-9]+"/, %(sha256 "#{sha}")) if sha
+            end
+
+            if line.strip == "end"
+              in_arm = false
+              in_intel = false
+            end
+          end
+
+          File.write(formula_path, lines.join)
+          RUBY
+
+          echo "updated=true" >> "$GITHUB_OUTPUT"
+          echo "version=$LATEST_VERSION" >> "$GITHUB_OUTPUT"
+          echo "formula=cc-statusline" >> "$GITHUB_OUTPUT"
+
+      - name: Create Pull Request
+        if: steps.cc-statusline.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.cc-statusline.outputs.version }}"
+          FORMULA="${{ steps.cc-statusline.outputs.formula }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          BRANCH="auto-update/$FORMULA-$VERSION"
+          git checkout -b "$BRANCH"
+          git add Formula/
+          git commit -m "feat($FORMULA): update to $VERSION"
+          git push -u origin "$BRANCH"
+
+          gh pr create \
+            --title "feat($FORMULA): update to $VERSION" \
+            --body "Automated update of $FORMULA to version $VERSION." \
+            --base main \
+            --head "$BRANCH"
