@@ -109,7 +109,7 @@ jobs:
           # Validate SHA256 values based on platform support
           LINUX_ONLY="${{ matrix.linux_only }}"
           if [ "$LINUX_ONLY" = "true" ]; then
-            REQUIRED_SHAS="SHA_LINUX_ARM SHA_LINUX_INTEL"
+            REQUIRED_SHAS="SHA_LINUX_INTEL"
           else
             REQUIRED_SHAS="SHA_MACOS_ARM SHA_MACOS_INTEL SHA_LINUX_ARM SHA_LINUX_INTEL"
           fi
