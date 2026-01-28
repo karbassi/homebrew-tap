@@ -13,18 +13,26 @@ permissions:
 jobs:
   update-formulas:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - formula: cc-statusline
+            repo: karbassi/cc-status-line
+          - formula: ticktick
+            repo: karbassi/ticktick-cli
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Update cc-statusline
-        id: cc-statusline
+      - name: Check for updates
+        id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          FORMULA="Formula/cc-statusline.rb"
-          REPO="karbassi/cc-status-line"
+          FORMULA="Formula/${{ matrix.formula }}.rb"
+          REPO="${{ matrix.repo }}"
 
           # Get current version from formula
           CURRENT_VERSION=$(grep -E '^  version "' "$FORMULA" | sed 's/.*"\(.*\)".*/\1/')
@@ -40,15 +48,46 @@ jobs:
             exit 0
           fi
 
+          # Check if PR already exists for this version
+          BRANCH="auto-update/${{ matrix.formula }}-$LATEST_VERSION"
+          if gh pr list --head "$BRANCH" --json number --jq 'length' | grep -q '^[1-9]'; then
+            echo "PR already exists for $BRANCH"
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           echo "Updating from $CURRENT_VERSION to $LATEST_VERSION"
+          echo "updated=true" >> "$GITHUB_OUTPUT"
+          echo "version=$LATEST_VERSION" >> "$GITHUB_OUTPUT"
+          echo "current_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Update formula
+        if: steps.check.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          FORMULA="Formula/${{ matrix.formula }}.rb"
+          REPO="${{ matrix.repo }}"
+          CURRENT_VERSION="${{ steps.check.outputs.current_version }}"
+          LATEST_VERSION="${{ steps.check.outputs.version }}"
 
           # Get SHA256 digests from GitHub API
-          ASSETS=$(gh api "repos/$REPO/releases/latest" --jq '.assets[] | "\(.name) \(.digest)"')
+          ASSETS=$(gh api "repos/$REPO/releases/latest" --jq '.assets[] | "\(.name) \(.digest // "")"')
 
           SHA_MACOS_ARM=$(echo "$ASSETS" | grep "macos-arm64" | awk '{print $2}' | sed 's/sha256://')
           SHA_MACOS_INTEL=$(echo "$ASSETS" | grep "macos-x86_64" | awk '{print $2}' | sed 's/sha256://')
           SHA_LINUX_ARM=$(echo "$ASSETS" | grep "linux-arm64" | awk '{print $2}' | sed 's/sha256://')
           SHA_LINUX_INTEL=$(echo "$ASSETS" | grep "linux-x86_64" | awk '{print $2}' | sed 's/sha256://')
+
+          # Validate SHA256 values
+          for sha_var in SHA_MACOS_ARM SHA_MACOS_INTEL SHA_LINUX_ARM SHA_LINUX_INTEL; do
+            sha_val="${!sha_var}"
+            if [ -z "$sha_val" ] || [ ${#sha_val} -ne 64 ]; then
+              echo "Error: Invalid SHA256 for $sha_var: '$sha_val'"
+              exit 1
+            fi
+          done
 
           echo "macos-arm64: $SHA_MACOS_ARM"
           echo "macos-x86_64: $SHA_MACOS_INTEL"
@@ -106,24 +145,20 @@ jobs:
           File.write(formula_path, lines.join)
           RUBY
 
-          echo "updated=true" >> "$GITHUB_OUTPUT"
-          echo "version=$LATEST_VERSION" >> "$GITHUB_OUTPUT"
-          echo "formula=cc-statusline" >> "$GITHUB_OUTPUT"
-
       - name: Create Pull Request
-        if: steps.cc-statusline.outputs.updated == 'true'
+        if: steps.check.outputs.updated == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ steps.cc-statusline.outputs.version }}"
-          FORMULA="${{ steps.cc-statusline.outputs.formula }}"
+          VERSION="${{ steps.check.outputs.version }}"
+          FORMULA="${{ matrix.formula }}"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           BRANCH="auto-update/$FORMULA-$VERSION"
           git checkout -b "$BRANCH"
-          git add Formula/
+          git add "Formula/$FORMULA.rb"
           git commit -m "feat($FORMULA): update to $VERSION"
           git push -u origin "$BRANCH"
 
