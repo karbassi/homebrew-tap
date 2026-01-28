@@ -24,9 +24,11 @@ jobs:
           - formula: cc-statusline
             repo: karbassi/cc-status-line
             asset_prefix: cc-statusline
+            linux_only: true
           - formula: ticktick
             repo: karbassi/ticktick-cli
             asset_prefix: ticktick-cli
+            linux_only: false
         exclude:
           - formula: ${{ github.event.client_payload.formula != '' && github.event.client_payload.formula != 'cc-statusline' && 'cc-statusline' || '' }}
           - formula: ${{ github.event.client_payload.formula != '' && github.event.client_payload.formula != 'ticktick' && 'ticktick' || '' }}
@@ -104,19 +106,22 @@ jobs:
           SHA_LINUX_ARM=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-linux-arm64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
           SHA_LINUX_INTEL=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-linux-x86_64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
 
-          # Validate SHA256 values
-          for sha_var in SHA_MACOS_ARM SHA_MACOS_INTEL SHA_LINUX_ARM SHA_LINUX_INTEL; do
+          # Validate SHA256 values based on platform support
+          LINUX_ONLY="${{ matrix.linux_only }}"
+          if [ "$LINUX_ONLY" = "true" ]; then
+            REQUIRED_SHAS="SHA_LINUX_ARM SHA_LINUX_INTEL"
+          else
+            REQUIRED_SHAS="SHA_MACOS_ARM SHA_MACOS_INTEL SHA_LINUX_ARM SHA_LINUX_INTEL"
+          fi
+
+          for sha_var in $REQUIRED_SHAS; do
             sha_val="${!sha_var}"
             if [ -z "$sha_val" ] || [ ${#sha_val} -ne 64 ]; then
               echo "Error: Invalid SHA256 for $sha_var: '$sha_val'"
               exit 1
             fi
+            echo "$sha_var: $sha_val"
           done
-
-          echo "macos-arm64: $SHA_MACOS_ARM"
-          echo "macos-x86_64: $SHA_MACOS_INTEL"
-          echo "linux-arm64: $SHA_LINUX_ARM"
-          echo "linux-x86_64: $SHA_LINUX_INTEL"
 
           # Update version
           sed -i "s/version \"$CURRENT_VERSION\"/version \"$LATEST_VERSION\"/" "$FORMULA"
