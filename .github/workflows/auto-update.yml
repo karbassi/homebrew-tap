@@ -1,10 +1,14 @@
 name: Auto-update Formulas
 
 on:
-  schedule:
-    # Run daily at 9am UTC
-    - cron: "0 9 * * *"
+  repository_dispatch:
+    types: [release]
   workflow_dispatch:
+    inputs:
+      formula:
+        description: 'Formula to update (leave empty for all)'
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -19,8 +23,13 @@ jobs:
         include:
           - formula: cc-statusline
             repo: karbassi/cc-status-line
+            asset_prefix: cc-statusline
           - formula: ticktick
             repo: karbassi/ticktick-cli
+            asset_prefix: ticktick-cli
+        exclude:
+          - formula: ${{ github.event.client_payload.formula != '' && github.event.client_payload.formula != 'cc-statusline' && 'cc-statusline' || '' }}
+          - formula: ${{ github.event.client_payload.formula != '' && github.event.client_payload.formula != 'ticktick' && 'ticktick' || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -80,10 +89,11 @@ jobs:
           # Get SHA256 digests from GitHub API
           ASSETS=$(gh api "repos/$REPO/releases/latest" --jq '.assets[] | "\(.name) \(.digest // "")"')
 
-          SHA_MACOS_ARM=$(echo "$ASSETS" | grep "macos-arm64" | awk '{print $2}' | sed 's/sha256://')
-          SHA_MACOS_INTEL=$(echo "$ASSETS" | grep "macos-x86_64" | awk '{print $2}' | sed 's/sha256://')
-          SHA_LINUX_ARM=$(echo "$ASSETS" | grep "linux-arm64" | awk '{print $2}' | sed 's/sha256://')
-          SHA_LINUX_INTEL=$(echo "$ASSETS" | grep "linux-x86_64" | awk '{print $2}' | sed 's/sha256://')
+          ASSET_PREFIX="${{ matrix.asset_prefix }}"
+          SHA_MACOS_ARM=$(echo "$ASSETS" | grep "${ASSET_PREFIX}-macos-arm64" | awk '{print $2}' | sed 's/sha256://')
+          SHA_MACOS_INTEL=$(echo "$ASSETS" | grep "${ASSET_PREFIX}-macos-x86_64" | awk '{print $2}' | sed 's/sha256://')
+          SHA_LINUX_ARM=$(echo "$ASSETS" | grep "${ASSET_PREFIX}-linux-arm64" | awk '{print $2}' | sed 's/sha256://')
+          SHA_LINUX_INTEL=$(echo "$ASSETS" | grep "${ASSET_PREFIX}-linux-x86_64" | awk '{print $2}' | sed 's/sha256://')
 
           # Validate SHA256 values
           for sha_var in SHA_MACOS_ARM SHA_MACOS_INTEL SHA_LINUX_ARM SHA_LINUX_INTEL; do
