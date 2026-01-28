@@ -25,7 +25,7 @@ jobs:
             repo: karbassi/cc-status-line
             asset_prefix: cc-statusline
             linux_only: false
-          - formula: ticktick
+          - formula: ticktick-cli
             repo: karbassi/ticktick-cli
             asset_prefix: ticktick-cli
             linux_only: false
