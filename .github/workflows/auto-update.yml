@@ -49,7 +49,8 @@ jobs:
           fi
 
           # Check if PR already exists for this version
-          BRANCH="auto-update/${{ matrix.formula }}-$LATEST_VERSION"
+          SAFE_VERSION_CHECK=$(echo "$LATEST_VERSION" | sed 's/[^a-zA-Z0-9._-]/-/g')
+          BRANCH="auto-update/${{ matrix.formula }}-$SAFE_VERSION_CHECK"
           if gh pr list --head "$BRANCH" --json number --jq 'length' | grep -q '^[1-9]'; then
             echo "PR already exists for $BRANCH"
             echo "updated=false" >> "$GITHUB_OUTPUT"
@@ -60,6 +61,10 @@ jobs:
           echo "updated=true" >> "$GITHUB_OUTPUT"
           echo "version=$LATEST_VERSION" >> "$GITHUB_OUTPUT"
           echo "current_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+
+          # Sanitize version for use in branch name (replace invalid characters)
+          SAFE_VERSION=$(echo "$LATEST_VERSION" | sed 's/[^a-zA-Z0-9._-]/-/g')
+          echo "safe_version=$SAFE_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Update formula
         if: steps.check.outputs.updated == 'true'
@@ -151,12 +156,20 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.check.outputs.version }}"
+          SAFE_VERSION="${{ steps.check.outputs.safe_version }}"
           FORMULA="${{ matrix.formula }}"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          BRANCH="auto-update/$FORMULA-$VERSION"
+          BRANCH="auto-update/$FORMULA-$SAFE_VERSION"
+
+          # Delete existing remote branch if it exists (e.g., from a failed previous run)
+          if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null 2>&1; then
+            echo "Deleting existing remote branch: $BRANCH"
+            git push origin --delete "$BRANCH"
+          fi
+
           git checkout -b "$BRANCH"
           git add "Formula/$FORMULA.rb"
           git commit -m "feat($FORMULA): update to $VERSION"
