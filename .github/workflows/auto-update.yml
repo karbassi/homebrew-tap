@@ -29,14 +29,25 @@ jobs:
             repo: karbassi/ticktick-cli
             asset_prefix: ticktick-cli
             linux_only: false
-        exclude:
-          - formula: ${{ github.event.client_payload.formula != '' && github.event.client_payload.formula != 'cc-statusline' && 'cc-statusline' || '' }}
-          - formula: ${{ github.event.client_payload.formula != '' && github.event.client_payload.formula != 'ticktick' && 'ticktick' || '' }}
     steps:
+      - name: Check if this formula should run
+        id: should_run
+        run: |
+          REQUESTED="${{ github.event.client_payload.formula }}"
+          CURRENT="${{ matrix.formula }}"
+          if [ -z "$REQUESTED" ] || [ "$REQUESTED" = "$CURRENT" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping $CURRENT (requested: $REQUESTED)"
+          fi
+
       - name: Checkout
+        if: steps.should_run.outputs.run == 'true'
         uses: actions/checkout@v4
 
       - name: Check for updates
+        if: steps.should_run.outputs.run == 'true'
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -86,7 +97,7 @@ jobs:
           echo "safe_version=$SAFE_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Update formula
-        if: steps.check.outputs.updated == 'true'
+        if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -171,7 +182,7 @@ jobs:
           RUBY
 
       - name: Create Pull Request
-        if: steps.check.outputs.updated == 'true'
+        if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
