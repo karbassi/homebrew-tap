@@ -42,27 +42,17 @@ jobs:
 
           echo "Updating from $CURRENT_VERSION to $LATEST_VERSION"
 
-          # Download each artifact and compute SHA256
-          BASE_URL="https://github.com/$REPO/releases/download/v$LATEST_VERSION"
+          # Get SHA256 digests from GitHub API
+          ASSETS=$(gh api "repos/$REPO/releases/latest" --jq '.assets[] | "\(.name) \(.digest)"')
 
-          echo "Downloading macos-arm64..."
-          curl -sL "$BASE_URL/cc-statusline-macos-arm64.tar.gz" -o /tmp/macos-arm64.tar.gz
-          SHA_MACOS_ARM=$(sha256sum /tmp/macos-arm64.tar.gz | cut -d' ' -f1)
+          SHA_MACOS_ARM=$(echo "$ASSETS" | grep "macos-arm64" | awk '{print $2}' | sed 's/sha256://')
+          SHA_MACOS_INTEL=$(echo "$ASSETS" | grep "macos-x86_64" | awk '{print $2}' | sed 's/sha256://')
+          SHA_LINUX_ARM=$(echo "$ASSETS" | grep "linux-arm64" | awk '{print $2}' | sed 's/sha256://')
+          SHA_LINUX_INTEL=$(echo "$ASSETS" | grep "linux-x86_64" | awk '{print $2}' | sed 's/sha256://')
+
           echo "macos-arm64: $SHA_MACOS_ARM"
-
-          echo "Downloading macos-x86_64..."
-          curl -sL "$BASE_URL/cc-statusline-macos-x86_64.tar.gz" -o /tmp/macos-x86_64.tar.gz
-          SHA_MACOS_INTEL=$(sha256sum /tmp/macos-x86_64.tar.gz | cut -d' ' -f1)
           echo "macos-x86_64: $SHA_MACOS_INTEL"
-
-          echo "Downloading linux-arm64..."
-          curl -sL "$BASE_URL/cc-statusline-linux-arm64.tar.gz" -o /tmp/linux-arm64.tar.gz
-          SHA_LINUX_ARM=$(sha256sum /tmp/linux-arm64.tar.gz | cut -d' ' -f1)
           echo "linux-arm64: $SHA_LINUX_ARM"
-
-          echo "Downloading linux-x86_64..."
-          curl -sL "$BASE_URL/cc-statusline-linux-x86_64.tar.gz" -o /tmp/linux-x86_64.tar.gz
-          SHA_LINUX_INTEL=$(sha256sum /tmp/linux-x86_64.tar.gz | cut -d' ' -f1)
           echo "linux-x86_64: $SHA_LINUX_INTEL"
 
           # Update version
