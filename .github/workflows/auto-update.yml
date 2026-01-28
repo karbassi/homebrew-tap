@@ -44,11 +44,19 @@ jobs:
           REPO="${{ matrix.repo }}"
 
           # Get current version from formula
-          CURRENT_VERSION=$(grep -E '^  version "' "$FORMULA" | sed 's/.*"\(.*\)".*/\1/')
+          CURRENT_VERSION=$(grep -E '^\s*version\s+"' "$FORMULA" | sed 's/.*"\(.*\)".*/\1/')
+          if [ -z "$CURRENT_VERSION" ]; then
+            echo "::error::Could not extract current version from $FORMULA"
+            exit 1
+          fi
           echo "Current version: $CURRENT_VERSION"
 
           # Get latest release version from GitHub
           LATEST_VERSION=$(gh api "repos/$REPO/releases/latest" --jq '.tag_name' | sed 's/^v//')
+          if [ -z "$LATEST_VERSION" ]; then
+            echo "::error::Could not fetch latest version from GitHub for $REPO"
+            exit 1
+          fi
           echo "Latest version: $LATEST_VERSION"
 
           if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
@@ -90,10 +98,11 @@ jobs:
           ASSETS=$(gh api "repos/$REPO/releases/latest" --jq '.assets[] | "\(.name) \(.digest // "")"')
 
           ASSET_PREFIX="${{ matrix.asset_prefix }}"
-          SHA_MACOS_ARM=$(echo "$ASSETS" | grep "${ASSET_PREFIX}-macos-arm64" | awk '{print $2}' | sed 's/sha256://')
-          SHA_MACOS_INTEL=$(echo "$ASSETS" | grep "${ASSET_PREFIX}-macos-x86_64" | awk '{print $2}' | sed 's/sha256://')
-          SHA_LINUX_ARM=$(echo "$ASSETS" | grep "${ASSET_PREFIX}-linux-arm64" | awk '{print $2}' | sed 's/sha256://')
-          SHA_LINUX_INTEL=$(echo "$ASSETS" | grep "${ASSET_PREFIX}-linux-x86_64" | awk '{print $2}' | sed 's/sha256://')
+          # Use exact pattern matching to avoid matching multiple assets
+          SHA_MACOS_ARM=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-macos-arm64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
+          SHA_MACOS_INTEL=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-macos-x86_64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
+          SHA_LINUX_ARM=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-linux-arm64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
+          SHA_LINUX_INTEL=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-linux-x86_64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
 
           # Validate SHA256 values
           for sha_var in SHA_MACOS_ARM SHA_MACOS_INTEL SHA_LINUX_ARM SHA_LINUX_INTEL; do
@@ -124,37 +133,33 @@ jobs:
 
           content = File.read(formula_path)
           lines = content.lines
-          in_macos = false
-          in_linux = false
-          in_arm = false
-          in_intel = false
+
+          # Track nesting with a stack for proper block handling
+          context_stack = []
 
           lines.each_with_index do |line, i|
-            in_macos = true if line.include?("on_macos")
-            in_linux = true if line.include?("on_linux")
-            in_macos = false if in_linux
+            # Track entering blocks
+            context_stack.push(:macos) if line =~ /\bon_macos\b/
+            context_stack.push(:linux) if line =~ /\bon_linux\b/
+            context_stack.push(:arm) if line =~ /\bon_arm\b/
+            context_stack.push(:intel) if line =~ /\bon_intel\b/
 
-            in_arm = true if line.include?("on_arm")
-            in_intel = true if line.include?("on_intel")
-            in_arm = false if in_intel
+            # Update SHA256 if we find one
+            if line =~ /sha256\s+"[a-fA-F0-9]+"/
+              os = context_stack.find { |c| [:macos, :linux].include?(c) }
+              arch = context_stack.find { |c| [:arm, :intel].include?(c) }
 
-            if line.include?("sha256") && line =~ /sha256 "[a-f0-9]+"/
-              sha = if in_macos && in_arm
-                shas[:macos_arm]
-              elsif in_macos && in_intel
-                shas[:macos_intel]
-              elsif in_linux && in_arm
-                shas[:linux_arm]
-              elsif in_linux && in_intel
-                shas[:linux_intel]
-              end
-              lines[i] = line.sub(/sha256 "[a-f0-9]+"/, %(sha256 "#{sha}")) if sha
+              sha = case [os, arch]
+                    when [:macos, :arm] then shas[:macos_arm]
+                    when [:macos, :intel] then shas[:macos_intel]
+                    when [:linux, :arm] then shas[:linux_arm]
+                    when [:linux, :intel] then shas[:linux_intel]
+                    end
+              lines[i] = line.sub(/sha256\s+"[a-fA-F0-9]+"/, %(sha256 "#{sha}")) if sha
             end
 
-            if line.strip == "end"
-              in_arm = false
-              in_intel = false
-            end
+            # Track exiting blocks
+            context_stack.pop if line.strip == "end" && !context_stack.empty?
           end
 
           File.write(formula_path, lines.join)
@@ -185,8 +190,12 @@ jobs:
           git commit -m "feat($FORMULA): update to $VERSION"
           git push -u origin "$BRANCH"
 
-          gh pr create \
+          if ! gh pr create \
             --title "feat($FORMULA): update to $VERSION" \
             --body "Automated update of $FORMULA to version $VERSION." \
             --base main \
-            --head "$BRANCH"
+            --head "$BRANCH"; then
+            echo "::warning::Failed to create PR, cleaning up branch"
+            git push origin --delete "$BRANCH" || true
+            exit 1
+          fi
