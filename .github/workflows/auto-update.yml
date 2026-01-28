@@ -24,7 +24,7 @@ jobs:
           - formula: cc-statusline
             repo: karbassi/cc-status-line
             asset_prefix: cc-statusline
-            linux_only: true
+            linux_only: false
           - formula: ticktick
             repo: karbassi/ticktick-cli
             asset_prefix: ticktick-cli
@@ -122,7 +122,8 @@ jobs:
           if [ "$LINUX_ONLY" = "true" ]; then
             REQUIRED_SHAS="SHA_LINUX_INTEL"
           else
-            REQUIRED_SHAS="SHA_MACOS_ARM SHA_MACOS_INTEL SHA_LINUX_ARM SHA_LINUX_INTEL"
+            # macOS + Linux x86_64 (no Linux ARM cross-compile)
+            REQUIRED_SHAS="SHA_MACOS_ARM SHA_MACOS_INTEL SHA_LINUX_INTEL"
           fi
 
           for sha_var in $REQUIRED_SHAS; do

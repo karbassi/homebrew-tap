@@ -4,6 +4,17 @@ class CcStatusline < Formula
   version "0.1.3-beta.2"
   license "MIT"
 
+  on_macos do
+    on_arm do
+      url "https://github.com/karbassi/cc-status-line/releases/download/v#{version}/cc-statusline-macos-arm64.tar.gz"
+      sha256 "PLACEHOLDER"
+    end
+    on_intel do
+      url "https://github.com/karbassi/cc-status-line/releases/download/v#{version}/cc-statusline-macos-x86_64.tar.gz"
+      sha256 "PLACEHOLDER"
+    end
+  end
+
   on_linux do
     on_intel do
       url "https://github.com/karbassi/cc-status-line/releases/download/v#{version}/cc-statusline-linux-x86_64.tar.gz"
