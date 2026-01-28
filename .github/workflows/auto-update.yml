@@ -181,37 +181,15 @@ jobs:
           File.write(formula_path, lines.join)
           RUBY
 
-      - name: Create Pull Request
+      - name: Commit and push
         if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.check.outputs.version }}"
-          SAFE_VERSION="${{ steps.check.outputs.safe_version }}"
           FORMULA="${{ matrix.formula }}"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          BRANCH="auto-update/$FORMULA-$SAFE_VERSION"
-
-          # Delete existing remote branch if it exists (e.g., from a failed previous run)
-          if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null 2>&1; then
-            echo "Deleting existing remote branch: $BRANCH"
-            git push origin --delete "$BRANCH"
-          fi
-
-          git checkout -b "$BRANCH"
           git add "Formula/$FORMULA.rb"
           git commit -m "feat($FORMULA): update to $VERSION"
-          git push -u origin "$BRANCH"
-
-          if ! gh pr create \
-            --title "feat($FORMULA): update to $VERSION" \
-            --body "Automated update of $FORMULA to version $VERSION." \
-            --base main \
-            --head "$BRANCH"; then
-            echo "::warning::Failed to create PR, cleaning up branch"
-            git push origin --delete "$BRANCH" || true
-            exit 1
-          fi
+          git push origin main
