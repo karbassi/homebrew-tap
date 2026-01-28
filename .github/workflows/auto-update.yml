@@ -1,0 +1,192 @@
+name: Auto-update Formulas
+
+on:
+  repository_dispatch:
+    types: [release]
+  workflow_dispatch:
+    inputs:
+      formula:
+        description: 'Formula to update (leave empty for all)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-formulas:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - formula: cc-statusline
+            repo: karbassi/cc-status-line
+            asset_prefix: cc-statusline
+          - formula: ticktick
+            repo: karbassi/ticktick-cli
+            asset_prefix: ticktick-cli
+        exclude:
+          - formula: ${{ github.event.client_payload.formula != '' && github.event.client_payload.formula != 'cc-statusline' && 'cc-statusline' || '' }}
+          - formula: ${{ github.event.client_payload.formula != '' && github.event.client_payload.formula != 'ticktick' && 'ticktick' || '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for updates
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          FORMULA="Formula/${{ matrix.formula }}.rb"
+          REPO="${{ matrix.repo }}"
+
+          # Get current version from formula
+          CURRENT_VERSION=$(grep -E '^  version "' "$FORMULA" | sed 's/.*"\(.*\)".*/\1/')
+          echo "Current version: $CURRENT_VERSION"
+
+          # Get latest release version from GitHub
+          LATEST_VERSION=$(gh api "repos/$REPO/releases/latest" --jq '.tag_name' | sed 's/^v//')
+          echo "Latest version: $LATEST_VERSION"
+
+          if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
+            echo "Already up to date"
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Check if PR already exists for this version
+          SAFE_VERSION_CHECK=$(echo "$LATEST_VERSION" | sed 's/[^a-zA-Z0-9._-]/-/g')
+          BRANCH="auto-update/${{ matrix.formula }}-$SAFE_VERSION_CHECK"
+          if gh pr list --head "$BRANCH" --json number --jq 'length' | grep -q '^[1-9]'; then
+            echo "PR already exists for $BRANCH"
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Updating from $CURRENT_VERSION to $LATEST_VERSION"
+          echo "updated=true" >> "$GITHUB_OUTPUT"
+          echo "version=$LATEST_VERSION" >> "$GITHUB_OUTPUT"
+          echo "current_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+
+          # Sanitize version for use in branch name (replace invalid characters)
+          SAFE_VERSION=$(echo "$LATEST_VERSION" | sed 's/[^a-zA-Z0-9._-]/-/g')
+          echo "safe_version=$SAFE_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Update formula
+        if: steps.check.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          FORMULA="Formula/${{ matrix.formula }}.rb"
+          REPO="${{ matrix.repo }}"
+          CURRENT_VERSION="${{ steps.check.outputs.current_version }}"
+          LATEST_VERSION="${{ steps.check.outputs.version }}"
+
+          # Get SHA256 digests from GitHub API
+          ASSETS=$(gh api "repos/$REPO/releases/latest" --jq '.assets[] | "\(.name) \(.digest // "")"')
+
+          ASSET_PREFIX="${{ matrix.asset_prefix }}"
+          SHA_MACOS_ARM=$(echo "$ASSETS" | grep "${ASSET_PREFIX}-macos-arm64" | awk '{print $2}' | sed 's/sha256://')
+          SHA_MACOS_INTEL=$(echo "$ASSETS" | grep "${ASSET_PREFIX}-macos-x86_64" | awk '{print $2}' | sed 's/sha256://')
+          SHA_LINUX_ARM=$(echo "$ASSETS" | grep "${ASSET_PREFIX}-linux-arm64" | awk '{print $2}' | sed 's/sha256://')
+          SHA_LINUX_INTEL=$(echo "$ASSETS" | grep "${ASSET_PREFIX}-linux-x86_64" | awk '{print $2}' | sed 's/sha256://')
+
+          # Validate SHA256 values
+          for sha_var in SHA_MACOS_ARM SHA_MACOS_INTEL SHA_LINUX_ARM SHA_LINUX_INTEL; do
+            sha_val="${!sha_var}"
+            if [ -z "$sha_val" ] || [ ${#sha_val} -ne 64 ]; then
+              echo "Error: Invalid SHA256 for $sha_var: '$sha_val'"
+              exit 1
+            fi
+          done
+
+          echo "macos-arm64: $SHA_MACOS_ARM"
+          echo "macos-x86_64: $SHA_MACOS_INTEL"
+          echo "linux-arm64: $SHA_LINUX_ARM"
+          echo "linux-x86_64: $SHA_LINUX_INTEL"
+
+          # Update version
+          sed -i "s/version \"$CURRENT_VERSION\"/version \"$LATEST_VERSION\"/" "$FORMULA"
+
+          # Update SHA256 hashes using Ruby to parse and update the formula
+          ruby <<RUBY
+          formula_path = "$FORMULA"
+          shas = {
+            macos_arm: "$SHA_MACOS_ARM",
+            macos_intel: "$SHA_MACOS_INTEL",
+            linux_arm: "$SHA_LINUX_ARM",
+            linux_intel: "$SHA_LINUX_INTEL"
+          }
+
+          content = File.read(formula_path)
+          lines = content.lines
+          in_macos = false
+          in_linux = false
+          in_arm = false
+          in_intel = false
+
+          lines.each_with_index do |line, i|
+            in_macos = true if line.include?("on_macos")
+            in_linux = true if line.include?("on_linux")
+            in_macos = false if in_linux
+
+            in_arm = true if line.include?("on_arm")
+            in_intel = true if line.include?("on_intel")
+            in_arm = false if in_intel
+
+            if line.include?("sha256") && line =~ /sha256 "[a-f0-9]+"/
+              sha = if in_macos && in_arm
+                shas[:macos_arm]
+              elsif in_macos && in_intel
+                shas[:macos_intel]
+              elsif in_linux && in_arm
+                shas[:linux_arm]
+              elsif in_linux && in_intel
+                shas[:linux_intel]
+              end
+              lines[i] = line.sub(/sha256 "[a-f0-9]+"/, %(sha256 "#{sha}")) if sha
+            end
+
+            if line.strip == "end"
+              in_arm = false
+              in_intel = false
+            end
+          end
+
+          File.write(formula_path, lines.join)
+          RUBY
+
+      - name: Create Pull Request
+        if: steps.check.outputs.updated == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.check.outputs.version }}"
+          SAFE_VERSION="${{ steps.check.outputs.safe_version }}"
+          FORMULA="${{ matrix.formula }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          BRANCH="auto-update/$FORMULA-$SAFE_VERSION"
+
+          # Delete existing remote branch if it exists (e.g., from a failed previous run)
+          if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null 2>&1; then
+            echo "Deleting existing remote branch: $BRANCH"
+            git push origin --delete "$BRANCH"
+          fi
+
+          git checkout -b "$BRANCH"
+          git add "Formula/$FORMULA.rb"
+          git commit -m "feat($FORMULA): update to $VERSION"
+          git push -u origin "$BRANCH"
+
+          gh pr create \
+            --title "feat($FORMULA): update to $VERSION" \
+            --body "Automated update of $FORMULA to version $VERSION." \
+            --base main \
+            --head "$BRANCH"
