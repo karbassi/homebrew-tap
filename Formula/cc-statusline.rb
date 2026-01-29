@@ -7,11 +7,11 @@ class CcStatusline < Formula
   on_macos do
     on_arm do
       url "https://github.com/karbassi/cc-status-line/releases/download/v#{version}/cc-statusline-macos-arm64.tar.gz"
-      sha256 "PLACEHOLDER"
+      sha256 "b1b3cb329ec6a5320d97a372e712648260f7b1757574560df8fdc5508042d421"
     end
     on_intel do
       url "https://github.com/karbassi/cc-status-line/releases/download/v#{version}/cc-statusline-macos-x86_64.tar.gz"
-      sha256 "PLACEHOLDER"
+      sha256 "02c812582ad31375ca4c34ca8f5fcbf7223df1d076ec0227f3e53b663a4838a6"
     end
   end
 
