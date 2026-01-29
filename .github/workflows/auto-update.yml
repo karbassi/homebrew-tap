@@ -161,8 +161,8 @@ jobs:
             context_stack.push(:arm) if line =~ /\bon_arm\b/
             context_stack.push(:intel) if line =~ /\bon_intel\b/
 
-            # Update SHA256 if we find one
-            if line =~ /sha256\s+"[a-fA-F0-9]+"/
+            # Update SHA256 if we find one (matches hex or PLACEHOLDER)
+            if line =~ /sha256\s+"([a-fA-F0-9]+|PLACEHOLDER)"/
               os = context_stack.find { |c| [:macos, :linux].include?(c) }
               arch = context_stack.find { |c| [:arm, :intel].include?(c) }
 
@@ -172,7 +172,7 @@ jobs:
                     when [:linux, :arm] then shas[:linux_arm]
                     when [:linux, :intel] then shas[:linux_intel]
                     end
-              lines[i] = line.sub(/sha256\s+"[a-fA-F0-9]+"/, %(sha256 "#{sha}")) if sha
+              lines[i] = line.sub(/sha256\s+"([a-fA-F0-9]+|PLACEHOLDER)"/, %(sha256 "#{sha}")) if sha
             end
 
             # Track exiting blocks
