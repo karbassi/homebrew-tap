@@ -7,22 +7,22 @@ class TicktickCli < Formula
   on_macos do
     on_arm do
       url "https://github.com/karbassi/ticktick-cli/releases/download/v#{version}/ticktick-cli-macos-arm64.tar.gz"
-      sha256 "62de63693adc74400f03c52438a5bf4449acf0ef10f6f78d4547cae391143519"
+      sha256 "a3e0ad4499ec91efd6d874a6e0b9eefbc5755d60f6d9eac69fce673d4bc3e2d3"
     end
     on_intel do
       url "https://github.com/karbassi/ticktick-cli/releases/download/v#{version}/ticktick-cli-macos-x86_64.tar.gz"
-      sha256 "00e3136f409147758ae489ff9918fd47d030cf25851afc3b5bd63404fce6a27b"
+      sha256 "1fce3937fccc266a107a7e5d3b5bbb6b7cb55f3cc5fcc9c6ffd5a9165403197c"
     end
   end
 
   on_linux do
     on_arm do
       url "https://github.com/karbassi/ticktick-cli/releases/download/v#{version}/ticktick-cli-linux-arm64.tar.gz"
-      sha256 "0f4e8a5f683c747ef736c62d10d42e6b3df76ff0854d53a02077002f3d720b6c"
+      sha256 "5dd1c6bd1d964fe7a8fe568682b906d928f19ebaa093116b085beb94e0a521ba"
     end
     on_intel do
       url "https://github.com/karbassi/ticktick-cli/releases/download/v#{version}/ticktick-cli-linux-x86_64.tar.gz"
-      sha256 "119cb6c48b5ae5b676df056d3ed1588d442d3337e9398a131f810c05ddec499e"
+      sha256 "1c1eb376d521829a02a71332c2212d1986b24f285e6f9411af0db07b183722dc"
     end
   end
 
