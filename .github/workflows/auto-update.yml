@@ -29,6 +29,10 @@ jobs:
             repo: karbassi/ticktick-cli
             asset_prefix: ticktick-cli
             linux_only: false
+          - formula: loom
+            repo: karbassi/loom-api
+            asset_prefix: loom
+            linux_only: false
     steps:
       - name: Check if this formula should run
         id: should_run
@@ -57,7 +61,7 @@ jobs:
           REPO="${{ matrix.repo }}"
 
           # Get current version from formula
-          CURRENT_VERSION=$(grep -E '^\s*version\s+"' "$FORMULA" | sed 's/.*"\(.*\)".*/\1/')
+          CURRENT_VERSION=$(grep -E '^\s*version\s+"' "$FORMULA" | sed 's/.*"\(.*\)".*//')
           if [ -z "$CURRENT_VERSION" ]; then
             echo "::error::Could not extract current version from $FORMULA"
             exit 1
@@ -136,7 +140,7 @@ jobs:
           done
 
           # Update version
-          sed -i "s/version \"$CURRENT_VERSION\"/version \"$LATEST_VERSION\"/" "$FORMULA"
+          sed -i "s/version "$CURRENT_VERSION"/version "$LATEST_VERSION"/" "$FORMULA"
 
           # Update SHA256 hashes using Ruby to parse and update the formula
           ruby <<RUBY
@@ -156,10 +160,10 @@ jobs:
 
           lines.each_with_index do |line, i|
             # Track entering blocks
-            context_stack.push(:macos) if line =~ /\bon_macos\b/
-            context_stack.push(:linux) if line =~ /\bon_linux\b/
-            context_stack.push(:arm) if line =~ /\bon_arm\b/
-            context_stack.push(:intel) if line =~ /\bon_intel\b/
+            context_stack.push(:macos) if line =~ /on_macos/
+            context_stack.push(:linux) if line =~ /on_linux/
+            context_stack.push(:arm) if line =~ /on_arm/
+            context_stack.push(:intel) if line =~ /on_intel/
 
             # Update SHA256 if we find one (matches hex or PLACEHOLDER)
             if line =~ /sha256\s+"([a-fA-F0-9]+|PLACEHOLDER)"/
