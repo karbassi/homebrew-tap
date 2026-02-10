@@ -13,9 +13,16 @@ brew tap karbassi/tap
 | Formula | Description |
 |---------|-------------|
 | [cc-statusline](https://github.com/karbassi/cc-status-line) | Lightweight, fast status line for Claude Code CLI |
+| [loom](https://github.com/karbassi/loom-api) | CLI for managing Loom videos |
 
 ### cc-statusline
 
 ```bash
 brew install karbassi/tap/cc-statusline
+```
+
+### loom
+
+```bash
+brew install karbassi/tap/loom
 ```
