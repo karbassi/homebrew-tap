@@ -1,28 +1,28 @@
 class TicktickCli < Formula
   desc "CLI for TickTick task management"
   homepage "https://github.com/karbassi/ticktick-cli"
-  version "0.11.0"
+  version "0.11.1"
   license "MIT"
 
   on_macos do
     on_arm do
       url "https://github.com/karbassi/ticktick-cli/releases/download/v#{version}/ticktick-cli-macos-arm64.tar.gz"
-      sha256 "2eb761f58c27461150c7f500ddeb2a2373c8b086397b17d2279dcd1c095dcb35"
+      sha256 "65cfcc997b0c56454e59d8d4057993da159936daef95cfc519752cbd513f9a67"
     end
     on_intel do
       url "https://github.com/karbassi/ticktick-cli/releases/download/v#{version}/ticktick-cli-macos-x86_64.tar.gz"
-      sha256 "a2c2952f07f756594ec6ec64e86fc75631dc86d71dc7ed9408a4631114d424af"
+      sha256 "75b6d9d4b2ca58e043dba64600d959b9d3162767e755009347ef8b404567d666"
     end
   end
 
   on_linux do
     on_arm do
       url "https://github.com/karbassi/ticktick-cli/releases/download/v#{version}/ticktick-cli-linux-arm64.tar.gz"
-      sha256 "911d6ca13c9fd8840d7a3cdbce1fcf5d82de8bc9e01c25e4e106b72d2808022a"
+      sha256 "344ba8d4b875c45cb3f414222d338d568cbafefbd59b669488cd02c92263ebdf"
     end
     on_intel do
       url "https://github.com/karbassi/ticktick-cli/releases/download/v#{version}/ticktick-cli-linux-x86_64.tar.gz"
-      sha256 "5454f428fb1ee8760c82c66c784b82b816b6cc60cc3b2a7b4608e05ae14e25a3"
+      sha256 "c5372237d1c820c6243d35f2378dbbf05b7ff7e60420b54ed7fe02750c9804b2"
     end
   end
 
