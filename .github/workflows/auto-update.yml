@@ -1,4 +1,4 @@
-name: Auto-update Formulas
+name: Auto-update Formulas and Casks
 
 on:
   repository_dispatch:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       formula:
-        description: 'Formula to update (leave empty for all)'
+        description: 'Formula or cask to update (leave empty for all)'
         required: false
         type: string
 
@@ -197,4 +197,87 @@ jobs:
 
           git add "Formula/$FORMULA.rb"
           git commit -m "feat($FORMULA): update to $VERSION"
+          git push origin main
+
+  update-casks:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cask: jerboa
+            repo: karbassi/jerboa
+            asset: Jerboa.zip
+    steps:
+      - name: Check if this cask should run
+        id: should_run
+        run: |
+          REQUESTED="${{ github.event.client_payload.cask }}"
+          CURRENT="${{ matrix.cask }}"
+          if [ -z "$REQUESTED" ] || [ "$REQUESTED" = "$CURRENT" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping $CURRENT (requested: $REQUESTED)"
+          fi
+
+      - name: Checkout
+        if: steps.should_run.outputs.run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Check for updates
+        if: steps.should_run.outputs.run == 'true'
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          CASK="Casks/${{ matrix.cask }}.rb"
+          REPO="${{ matrix.repo }}"
+
+          CURRENT_VERSION=$(grep -E '^\s*version\s+"' "$CASK" | sed 's/.*"\(.*\)".*/\1/')
+          echo "Current version: $CURRENT_VERSION"
+
+          LATEST_VERSION=$(gh api "repos/$REPO/releases/latest" --jq '.tag_name' | sed 's/^v//')
+          echo "Latest version: $LATEST_VERSION"
+
+          if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
+            echo "Already up to date"
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Get SHA256 from release asset digest
+          SHA=$(gh api "repos/$REPO/releases/latest" --jq '.assets[] | select(.name == "${{ matrix.asset }}") | .digest' | sed 's/sha256://')
+          if [ -z "$SHA" ] || [ ${#SHA} -ne 64 ]; then
+            echo "::error::Invalid SHA256: '$SHA'"
+            exit 1
+          fi
+
+          echo "updated=true" >> "$GITHUB_OUTPUT"
+          echo "version=$LATEST_VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Update cask
+        if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
+        run: |
+          set -e
+          CASK="Casks/${{ matrix.cask }}.rb"
+          VERSION="${{ steps.check.outputs.version }}"
+          SHA="${{ steps.check.outputs.sha }}"
+
+          sed -i "s/version \".*\"/version \"$VERSION\"/" "$CASK"
+          sed -i "s/sha256 \".*\"/sha256 \"$SHA\"/" "$CASK"
+
+      - name: Commit and push
+        if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
+        run: |
+          VERSION="${{ steps.check.outputs.version }}"
+          CASK="${{ matrix.cask }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add "Casks/$CASK.rb"
+          git commit -m "feat($CASK): update to $VERSION"
           git push origin main
