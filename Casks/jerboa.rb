@@ -11,4 +11,9 @@ cask "jerboa" do
 
   app "Jerboa.app"
   binary "#{appdir}/Jerboa.app/Contents/MacOS/Jerboa", target: "jerboa"
+
+  postflight do
+    system_command "/usr/bin/xattr",
+                   args: ["-d", "com.apple.quarantine", "#{appdir}/Jerboa.app"]
+  end
 end
