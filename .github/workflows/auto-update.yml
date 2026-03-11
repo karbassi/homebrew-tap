@@ -6,13 +6,12 @@ on:
   workflow_dispatch:
     inputs:
       formula:
-        description: 'Formula or cask to update (leave empty for all)'
+        description: "Formula or cask to update (leave empty for all)"
         required: false
         type: string
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   update-formulas:
@@ -21,39 +20,34 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - formula: cc-statusline
-            repo: karbassi/cc-status-line
-            asset_prefix: cc-statusline
-            linux_only: false
-          - formula: ticktick-cli
-            repo: karbassi/ticktick-cli
-            asset_prefix: ticktick-cli
-            linux_only: false
-          - formula: loom
-            repo: karbassi/loom-api
-            asset_prefix: loom
-            linux_only: false
           - formula: apple-voice-memos-cli
             repo: karbassi/apple-voice-memos-cli
             asset_prefix: apple-voice-memos-cli
-            linux_only: false
             universal: true
+          - formula: cc-statusline
+            repo: karbassi/cc-status-line
+            asset_prefix: cc-statusline
+          - formula: loom
+            repo: karbassi/loom-api
+            asset_prefix: loom
+          - formula: ticktick-cli
+            repo: karbassi/ticktick-cli
+            asset_prefix: ticktick-cli
     steps:
       - name: Check if this formula should run
         id: should_run
         run: |
-          REQUESTED="${{ github.event.client_payload.formula }}"
+          REQUESTED="${{ github.event.client_payload.formula || inputs.formula }}"
           CURRENT="${{ matrix.formula }}"
           if [ -z "$REQUESTED" ] || [ "$REQUESTED" = "$CURRENT" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
-            echo "run=false" >> "$GITHUB_OUTPUT"
             echo "Skipping $CURRENT (requested: $REQUESTED)"
+            echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Checkout
+      - uses: actions/checkout@v4
         if: steps.should_run.outputs.run == 'true'
-        uses: actions/checkout@v4
 
       - name: Check for updates
         if: steps.should_run.outputs.run == 'true'
@@ -65,158 +59,119 @@ jobs:
           FORMULA="Formula/${{ matrix.formula }}.rb"
           REPO="${{ matrix.repo }}"
 
-          # Get current version from formula
-          CURRENT_VERSION=$(grep -E '^\s*version\s+"' "$FORMULA" | sed 's/.*"\(.*\)".*/\1/')
-          if [ -z "$CURRENT_VERSION" ]; then
-            echo "::error::Could not extract current version from $FORMULA"
-            exit 1
-          fi
-          echo "Current version: $CURRENT_VERSION"
+          CURRENT=$(grep -E '^\s*version\s+"' "$FORMULA" | sed 's/.*"\(.*\)".*/\1/')
+          LATEST=$(gh api "repos/$REPO/releases/latest" --jq '.tag_name' | sed 's/^v//')
 
-          # Get latest release version from GitHub
-          LATEST_VERSION=$(gh api "repos/$REPO/releases/latest" --jq '.tag_name' | sed 's/^v//')
-          if [ -z "$LATEST_VERSION" ]; then
-            echo "::error::Could not fetch latest version from GitHub for $REPO"
-            exit 1
-          fi
-          echo "Latest version: $LATEST_VERSION"
+          echo "Current: $CURRENT → Latest: $LATEST"
 
-          if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
+          if [ "$CURRENT" = "$LATEST" ]; then
             echo "Already up to date"
             echo "updated=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Check if PR already exists for this version
-          SAFE_VERSION_CHECK=$(echo "$LATEST_VERSION" | sed 's/[^a-zA-Z0-9._-]/-/g')
-          BRANCH="auto-update/${{ matrix.formula }}-$SAFE_VERSION_CHECK"
-          if gh pr list --head "$BRANCH" --json number --jq 'length' | grep -q '^[1-9]'; then
-            echo "PR already exists for $BRANCH"
-            echo "updated=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          echo "Updating from $CURRENT_VERSION to $LATEST_VERSION"
           echo "updated=true" >> "$GITHUB_OUTPUT"
-          echo "version=$LATEST_VERSION" >> "$GITHUB_OUTPUT"
-          echo "current_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
 
-          # Sanitize version for use in branch name (replace invalid characters)
-          SAFE_VERSION=$(echo "$LATEST_VERSION" | sed 's/[^a-zA-Z0-9._-]/-/g')
-          echo "safe_version=$SAFE_VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Update formula
+      - name: Fetch SHA256 digests
         if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
+        id: sha
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          FORMULA="Formula/${{ matrix.formula }}.rb"
           REPO="${{ matrix.repo }}"
-          CURRENT_VERSION="${{ steps.check.outputs.current_version }}"
-          LATEST_VERSION="${{ steps.check.outputs.version }}"
+          PREFIX="${{ matrix.asset_prefix }}"
           UNIVERSAL="${{ matrix.universal }}"
 
-          # Get SHA256 digests from GitHub API
           ASSETS=$(gh api "repos/$REPO/releases/latest" --jq '.assets[] | "\(.name) \(.digest // "")"')
 
-          ASSET_PREFIX="${{ matrix.asset_prefix }}"
-
-          if [ "$UNIVERSAL" = "true" ]; then
-            # Universal binary: single asset, simple sed replacement
-            SHA_UNIVERSAL=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-v[^-]+-macos-universal\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
-            if [ -z "$SHA_UNIVERSAL" ] || [ ${#SHA_UNIVERSAL} -ne 64 ]; then
-              echo "Error: Invalid SHA256 for universal asset: '$SHA_UNIVERSAL'"
+          get_sha() {
+            local pattern="$1"
+            local sha=$(echo "$ASSETS" | grep -E "^${pattern}\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
+            if [ -z "$sha" ] || [ ${#sha} -ne 64 ]; then
+              echo "::error::No valid SHA256 for pattern: $pattern"
               exit 1
             fi
-            echo "SHA_UNIVERSAL: $SHA_UNIVERSAL"
+            echo "$sha"
+          }
 
-            sed -i "s/version \"$CURRENT_VERSION\"/version \"$LATEST_VERSION\"/" "$FORMULA"
-            sed -i "s|${ASSET_PREFIX}-v${CURRENT_VERSION}-macos-universal|${ASSET_PREFIX}-v${LATEST_VERSION}-macos-universal|" "$FORMULA"
-            sed -i "s/sha256 \"[a-fA-F0-9]\{64\}\"/sha256 \"$SHA_UNIVERSAL\"/" "$FORMULA"
+          if [ "$UNIVERSAL" = "true" ]; then
+            SHA=$(get_sha "${PREFIX}-v[^-]+-macos-universal")
+            echo "universal=$SHA" >> "$GITHUB_OUTPUT"
+            echo "Universal: $SHA"
           else
-            # Per-platform assets
-            SHA_MACOS_ARM=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-macos-arm64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
-            SHA_MACOS_INTEL=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-macos-x86_64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
-            SHA_LINUX_ARM=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-linux-arm64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
-            SHA_LINUX_INTEL=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-linux-x86_64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
-
-            # Validate SHA256 values based on platform support
-            LINUX_ONLY="${{ matrix.linux_only }}"
-            if [ "$LINUX_ONLY" = "true" ]; then
-              REQUIRED_SHAS="SHA_LINUX_INTEL"
-            else
-              REQUIRED_SHAS="SHA_MACOS_ARM SHA_MACOS_INTEL SHA_LINUX_INTEL"
-            fi
-
-            for sha_var in $REQUIRED_SHAS; do
-              sha_val="${!sha_var}"
-              if [ -z "$sha_val" ] || [ ${#sha_val} -ne 64 ]; then
-                echo "Error: Invalid SHA256 for $sha_var: '$sha_val'"
-                exit 1
+            for platform in macos-arm64 macos-x86_64 linux-arm64 linux-x86_64; do
+              KEY=$(echo "$platform" | tr '-' '_')
+              SHA=$(echo "$ASSETS" | grep -E "^${PREFIX}-${platform}\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://' || true)
+              if [ -n "$SHA" ] && [ ${#SHA} -eq 64 ]; then
+                echo "${KEY}=$SHA" >> "$GITHUB_OUTPUT"
+                echo "$platform: $SHA"
               fi
-              echo "$sha_var: $sha_val"
             done
+          fi
 
-            # Update version
-            sed -i "s/version \"$CURRENT_VERSION\"/version \"$LATEST_VERSION\"/" "$FORMULA"
+      - name: Update formula
+        if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
+        run: |
+          set -e
+          FORMULA="Formula/${{ matrix.formula }}.rb"
+          CURRENT="${{ steps.check.outputs.current }}"
+          LATEST="${{ steps.check.outputs.latest }}"
+          UNIVERSAL="${{ matrix.universal }}"
 
-            # Update SHA256 hashes using Ruby to parse and update the formula
-            ruby <<RUBY
-            formula_path = "$FORMULA"
+          sed -i "s/version \"$CURRENT\"/version \"$LATEST\"/" "$FORMULA"
+
+          if [ "$UNIVERSAL" = "true" ]; then
+            sed -i "s/sha256 \"[a-fA-F0-9]\{64\}\"/sha256 \"${{ steps.sha.outputs.universal }}\"/" "$FORMULA"
+          else
+            ruby <<'RUBY'
+            formula = ENV.fetch("FORMULA")
             shas = {
-              macos_arm: "$SHA_MACOS_ARM",
-              macos_intel: "$SHA_MACOS_INTEL",
-              linux_arm: "$SHA_LINUX_ARM",
-              linux_intel: "$SHA_LINUX_INTEL"
+              macos: { arm: ENV["MACOS_ARM64"], intel: ENV["MACOS_X86_64"] },
+              linux: { arm: ENV["LINUX_ARM64"], intel: ENV["LINUX_X86_64"] }
             }
 
-            content = File.read(formula_path)
-            lines = content.lines
-
-            # Track nesting with a stack for proper block handling
-            context_stack = []
+            lines = File.readlines(formula)
+            stack = []
 
             lines.each_with_index do |line, i|
-              # Track entering blocks
-              context_stack.push(:macos) if line =~ /\bon_macos\b/
-              context_stack.push(:linux) if line =~ /\bon_linux\b/
-              context_stack.push(:arm) if line =~ /\bon_arm\b/
-              context_stack.push(:intel) if line =~ /\bon_intel\b/
+              stack.push(:macos) if line =~ /\bon_macos\b/
+              stack.push(:linux) if line =~ /\bon_linux\b/
+              stack.push(:arm)   if line =~ /\bon_arm\b/
+              stack.push(:intel) if line =~ /\bon_intel\b/
 
-              # Update SHA256 if we find one (matches hex or PLACEHOLDER)
               if line =~ /sha256\s+"([a-fA-F0-9]+|PLACEHOLDER)"/
-                os = context_stack.find { |c| [:macos, :linux].include?(c) }
-                arch = context_stack.find { |c| [:arm, :intel].include?(c) }
-
-                sha = case [os, arch]
-                      when [:macos, :arm] then shas[:macos_arm]
-                      when [:macos, :intel] then shas[:macos_intel]
-                      when [:linux, :arm] then shas[:linux_arm]
-                      when [:linux, :intel] then shas[:linux_intel]
-                      end
-                lines[i] = line.sub(/sha256\s+"([a-fA-F0-9]+|PLACEHOLDER)"/, %(sha256 "#{sha}")) if sha
+                os   = stack.find { |c| %i[macos linux].include?(c) }
+                arch = stack.find { |c| %i[arm intel].include?(c) }
+                sha  = shas.dig(os, arch)
+                lines[i] = line.sub(/sha256\s+"[^"]+"/, %(sha256 "#{sha}")) if sha&.match?(/\A[a-fA-F0-9]{64}\z/)
               end
 
-              # Track exiting blocks
-              context_stack.pop if line.strip == "end" && !context_stack.empty?
+              stack.pop if line.strip == "end" && !stack.empty?
             end
 
-            File.write(formula_path, lines.join)
+            File.write(formula, lines.join)
             RUBY
           fi
+
+          echo "Updated $FORMULA"
+          grep -E 'version|sha256' "$FORMULA"
+        env:
+          FORMULA: "Formula/${{ matrix.formula }}.rb"
+          MACOS_ARM64: ${{ steps.sha.outputs.macos_arm64 }}
+          MACOS_X86_64: ${{ steps.sha.outputs.macos_x86_64 }}
+          LINUX_ARM64: ${{ steps.sha.outputs.linux_arm64 }}
+          LINUX_X86_64: ${{ steps.sha.outputs.linux_x86_64 }}
 
       - name: Commit and push
         if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
         run: |
-          VERSION="${{ steps.check.outputs.version }}"
-          FORMULA="${{ matrix.formula }}"
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add "Formula/$FORMULA.rb"
-          git commit -m "feat($FORMULA): update to $VERSION"
+          git add "Formula/${{ matrix.formula }}.rb"
+          git commit -m "${{ matrix.formula }} ${{ steps.check.outputs.latest }}"
           git push origin main
 
   update-casks:
@@ -232,18 +187,17 @@ jobs:
       - name: Check if this cask should run
         id: should_run
         run: |
-          REQUESTED="${{ github.event.client_payload.cask }}"
+          REQUESTED="${{ github.event.client_payload.cask || inputs.formula }}"
           CURRENT="${{ matrix.cask }}"
           if [ -z "$REQUESTED" ] || [ "$REQUESTED" = "$CURRENT" ]; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
-            echo "run=false" >> "$GITHUB_OUTPUT"
             echo "Skipping $CURRENT (requested: $REQUESTED)"
+            echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Checkout
+      - uses: actions/checkout@v4
         if: steps.should_run.outputs.run == 'true'
-        uses: actions/checkout@v4
 
       - name: Check for updates
         if: steps.should_run.outputs.run == 'true'
@@ -255,19 +209,17 @@ jobs:
           CASK="Casks/${{ matrix.cask }}.rb"
           REPO="${{ matrix.repo }}"
 
-          CURRENT_VERSION=$(grep -E '^\s*version\s+"' "$CASK" | sed 's/.*"\(.*\)".*/\1/')
-          echo "Current version: $CURRENT_VERSION"
+          CURRENT=$(grep -E '^\s*version\s+"' "$CASK" | sed 's/.*"\(.*\)".*/\1/')
+          LATEST=$(gh api "repos/$REPO/releases/latest" --jq '.tag_name' | sed 's/^v//')
 
-          LATEST_VERSION=$(gh api "repos/$REPO/releases/latest" --jq '.tag_name' | sed 's/^v//')
-          echo "Latest version: $LATEST_VERSION"
+          echo "Current: $CURRENT → Latest: $LATEST"
 
-          if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
+          if [ "$CURRENT" = "$LATEST" ]; then
             echo "Already up to date"
             echo "updated=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Get SHA256 from release asset digest
           SHA=$(gh api "repos/$REPO/releases/latest" --jq '.assets[] | select(.name == "${{ matrix.asset }}") | .digest' | sed 's/sha256://')
           if [ -z "$SHA" ] || [ ${#SHA} -ne 64 ]; then
             echo "::error::Invalid SHA256: '$SHA'"
@@ -275,29 +227,21 @@ jobs:
           fi
 
           echo "updated=true" >> "$GITHUB_OUTPUT"
-          echo "version=$LATEST_VERSION" >> "$GITHUB_OUTPUT"
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
 
       - name: Update cask
         if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
         run: |
-          set -e
           CASK="Casks/${{ matrix.cask }}.rb"
-          VERSION="${{ steps.check.outputs.version }}"
-          SHA="${{ steps.check.outputs.sha }}"
-
-          sed -i "s/version \".*\"/version \"$VERSION\"/" "$CASK"
-          sed -i "s/sha256 \".*\"/sha256 \"$SHA\"/" "$CASK"
+          sed -i "s/version \".*\"/version \"${{ steps.check.outputs.latest }}\"/" "$CASK"
+          sed -i "s/sha256 \".*\"/sha256 \"${{ steps.check.outputs.sha }}\"/" "$CASK"
 
       - name: Commit and push
         if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
         run: |
-          VERSION="${{ steps.check.outputs.version }}"
-          CASK="${{ matrix.cask }}"
-
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          git add "Casks/$CASK.rb"
-          git commit -m "feat($CASK): update to $VERSION"
+          git add "Casks/${{ matrix.cask }}.rb"
+          git commit -m "${{ matrix.cask }} ${{ steps.check.outputs.latest }}"
           git push origin main
