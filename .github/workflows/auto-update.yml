@@ -126,34 +126,34 @@ jobs:
           if [ "$UNIVERSAL" = "true" ]; then
             sed -i "s/sha256 \"[a-fA-F0-9]\{64\}\"/sha256 \"${{ steps.sha.outputs.universal }}\"/" "$FORMULA"
           else
-            ruby <<'RUBY'
-            formula = ENV.fetch("FORMULA")
-            shas = {
-              macos: { arm: ENV["MACOS_ARM64"], intel: ENV["MACOS_X86_64"] },
-              linux: { arm: ENV["LINUX_ARM64"], intel: ENV["LINUX_X86_64"] }
-            }
+          ruby <<'RUBY'
+          formula = ENV.fetch("FORMULA")
+          shas = {
+            macos: { arm: ENV["MACOS_ARM64"], intel: ENV["MACOS_X86_64"] },
+            linux: { arm: ENV["LINUX_ARM64"], intel: ENV["LINUX_X86_64"] }
+          }
 
-            lines = File.readlines(formula)
-            stack = []
+          lines = File.readlines(formula)
+          stack = []
 
-            lines.each_with_index do |line, i|
-              stack.push(:macos) if line =~ /\bon_macos\b/
-              stack.push(:linux) if line =~ /\bon_linux\b/
-              stack.push(:arm)   if line =~ /\bon_arm\b/
-              stack.push(:intel) if line =~ /\bon_intel\b/
+          lines.each_with_index do |line, i|
+            stack.push(:macos) if line =~ /\bon_macos\b/
+            stack.push(:linux) if line =~ /\bon_linux\b/
+            stack.push(:arm)   if line =~ /\bon_arm\b/
+            stack.push(:intel) if line =~ /\bon_intel\b/
 
-              if line =~ /sha256\s+"([a-fA-F0-9]+|PLACEHOLDER)"/
-                os   = stack.find { |c| %i[macos linux].include?(c) }
-                arch = stack.find { |c| %i[arm intel].include?(c) }
-                sha  = shas.dig(os, arch)
-                lines[i] = line.sub(/sha256\s+"[^"]+"/, %(sha256 "#{sha}")) if sha&.match?(/\A[a-fA-F0-9]{64}\z/)
-              end
-
-              stack.pop if line.strip == "end" && !stack.empty?
+            if line =~ /sha256\s+"([a-fA-F0-9]+|PLACEHOLDER)"/
+              os   = stack.find { |c| %i[macos linux].include?(c) }
+              arch = stack.find { |c| %i[arm intel].include?(c) }
+              sha  = shas.dig(os, arch)
+              lines[i] = line.sub(/sha256\s+"[^"]+"/, %(sha256 "#{sha}")) if sha&.match?(/\A[a-fA-F0-9]{64}\z/)
             end
 
-            File.write(formula, lines.join)
-            RUBY
+            stack.pop if line.strip == "end" && !stack.empty?
+          end
+
+          File.write(formula, lines.join)
+          RUBY
           fi
 
           echo "Updated $FORMULA"
