@@ -33,6 +33,11 @@ jobs:
             repo: karbassi/loom-api
             asset_prefix: loom
             linux_only: false
+          - formula: apple-voice-memos-cli
+            repo: karbassi/apple-voice-memos-cli
+            asset_prefix: apple-voice-memos-cli
+            linux_only: false
+            universal: true
     steps:
       - name: Check if this formula should run
         id: should_run
@@ -110,81 +115,96 @@ jobs:
           REPO="${{ matrix.repo }}"
           CURRENT_VERSION="${{ steps.check.outputs.current_version }}"
           LATEST_VERSION="${{ steps.check.outputs.version }}"
+          UNIVERSAL="${{ matrix.universal }}"
 
           # Get SHA256 digests from GitHub API
           ASSETS=$(gh api "repos/$REPO/releases/latest" --jq '.assets[] | "\(.name) \(.digest // "")"')
 
           ASSET_PREFIX="${{ matrix.asset_prefix }}"
-          # Use exact pattern matching to avoid matching multiple assets
-          SHA_MACOS_ARM=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-macos-arm64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
-          SHA_MACOS_INTEL=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-macos-x86_64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
-          SHA_LINUX_ARM=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-linux-arm64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
-          SHA_LINUX_INTEL=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-linux-x86_64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
 
-          # Validate SHA256 values based on platform support
-          LINUX_ONLY="${{ matrix.linux_only }}"
-          if [ "$LINUX_ONLY" = "true" ]; then
-            REQUIRED_SHAS="SHA_LINUX_INTEL"
-          else
-            # macOS + Linux x86_64 (no Linux ARM cross-compile)
-            REQUIRED_SHAS="SHA_MACOS_ARM SHA_MACOS_INTEL SHA_LINUX_INTEL"
-          fi
-
-          for sha_var in $REQUIRED_SHAS; do
-            sha_val="${!sha_var}"
-            if [ -z "$sha_val" ] || [ ${#sha_val} -ne 64 ]; then
-              echo "Error: Invalid SHA256 for $sha_var: '$sha_val'"
+          if [ "$UNIVERSAL" = "true" ]; then
+            # Universal binary: single asset, simple sed replacement
+            SHA_UNIVERSAL=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-v[^-]+-macos-universal\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
+            if [ -z "$SHA_UNIVERSAL" ] || [ ${#SHA_UNIVERSAL} -ne 64 ]; then
+              echo "Error: Invalid SHA256 for universal asset: '$SHA_UNIVERSAL'"
               exit 1
             fi
-            echo "$sha_var: $sha_val"
-          done
+            echo "SHA_UNIVERSAL: $SHA_UNIVERSAL"
 
-          # Update version
-          sed -i "s/version \"$CURRENT_VERSION\"/version \"$LATEST_VERSION\"/" "$FORMULA"
+            sed -i "s/version \"$CURRENT_VERSION\"/version \"$LATEST_VERSION\"/" "$FORMULA"
+            sed -i "s|${ASSET_PREFIX}-v${CURRENT_VERSION}-macos-universal|${ASSET_PREFIX}-v${LATEST_VERSION}-macos-universal|" "$FORMULA"
+            sed -i "s/sha256 \"[a-fA-F0-9]\{64\}\"/sha256 \"$SHA_UNIVERSAL\"/" "$FORMULA"
+          else
+            # Per-platform assets
+            SHA_MACOS_ARM=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-macos-arm64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
+            SHA_MACOS_INTEL=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-macos-x86_64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
+            SHA_LINUX_ARM=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-linux-arm64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
+            SHA_LINUX_INTEL=$(echo "$ASSETS" | grep -E "^${ASSET_PREFIX}-linux-x86_64\.(tar\.gz|zip) " | head -1 | awk '{print $2}' | sed 's/sha256://')
 
-          # Update SHA256 hashes using Ruby to parse and update the formula
-          ruby <<RUBY
-          formula_path = "$FORMULA"
-          shas = {
-            macos_arm: "$SHA_MACOS_ARM",
-            macos_intel: "$SHA_MACOS_INTEL",
-            linux_arm: "$SHA_LINUX_ARM",
-            linux_intel: "$SHA_LINUX_INTEL"
-          }
+            # Validate SHA256 values based on platform support
+            LINUX_ONLY="${{ matrix.linux_only }}"
+            if [ "$LINUX_ONLY" = "true" ]; then
+              REQUIRED_SHAS="SHA_LINUX_INTEL"
+            else
+              REQUIRED_SHAS="SHA_MACOS_ARM SHA_MACOS_INTEL SHA_LINUX_INTEL"
+            fi
 
-          content = File.read(formula_path)
-          lines = content.lines
+            for sha_var in $REQUIRED_SHAS; do
+              sha_val="${!sha_var}"
+              if [ -z "$sha_val" ] || [ ${#sha_val} -ne 64 ]; then
+                echo "Error: Invalid SHA256 for $sha_var: '$sha_val'"
+                exit 1
+              fi
+              echo "$sha_var: $sha_val"
+            done
 
-          # Track nesting with a stack for proper block handling
-          context_stack = []
+            # Update version
+            sed -i "s/version \"$CURRENT_VERSION\"/version \"$LATEST_VERSION\"/" "$FORMULA"
 
-          lines.each_with_index do |line, i|
-            # Track entering blocks
-            context_stack.push(:macos) if line =~ /\bon_macos\b/
-            context_stack.push(:linux) if line =~ /\bon_linux\b/
-            context_stack.push(:arm) if line =~ /\bon_arm\b/
-            context_stack.push(:intel) if line =~ /\bon_intel\b/
+            # Update SHA256 hashes using Ruby to parse and update the formula
+            ruby <<RUBY
+            formula_path = "$FORMULA"
+            shas = {
+              macos_arm: "$SHA_MACOS_ARM",
+              macos_intel: "$SHA_MACOS_INTEL",
+              linux_arm: "$SHA_LINUX_ARM",
+              linux_intel: "$SHA_LINUX_INTEL"
+            }
 
-            # Update SHA256 if we find one (matches hex or PLACEHOLDER)
-            if line =~ /sha256\s+"([a-fA-F0-9]+|PLACEHOLDER)"/
-              os = context_stack.find { |c| [:macos, :linux].include?(c) }
-              arch = context_stack.find { |c| [:arm, :intel].include?(c) }
+            content = File.read(formula_path)
+            lines = content.lines
 
-              sha = case [os, arch]
-                    when [:macos, :arm] then shas[:macos_arm]
-                    when [:macos, :intel] then shas[:macos_intel]
-                    when [:linux, :arm] then shas[:linux_arm]
-                    when [:linux, :intel] then shas[:linux_intel]
-                    end
-              lines[i] = line.sub(/sha256\s+"([a-fA-F0-9]+|PLACEHOLDER)"/, %(sha256 "#{sha}")) if sha
+            # Track nesting with a stack for proper block handling
+            context_stack = []
+
+            lines.each_with_index do |line, i|
+              # Track entering blocks
+              context_stack.push(:macos) if line =~ /\bon_macos\b/
+              context_stack.push(:linux) if line =~ /\bon_linux\b/
+              context_stack.push(:arm) if line =~ /\bon_arm\b/
+              context_stack.push(:intel) if line =~ /\bon_intel\b/
+
+              # Update SHA256 if we find one (matches hex or PLACEHOLDER)
+              if line =~ /sha256\s+"([a-fA-F0-9]+|PLACEHOLDER)"/
+                os = context_stack.find { |c| [:macos, :linux].include?(c) }
+                arch = context_stack.find { |c| [:arm, :intel].include?(c) }
+
+                sha = case [os, arch]
+                      when [:macos, :arm] then shas[:macos_arm]
+                      when [:macos, :intel] then shas[:macos_intel]
+                      when [:linux, :arm] then shas[:linux_arm]
+                      when [:linux, :intel] then shas[:linux_intel]
+                      end
+                lines[i] = line.sub(/sha256\s+"([a-fA-F0-9]+|PLACEHOLDER)"/, %(sha256 "#{sha}")) if sha
+              end
+
+              # Track exiting blocks
+              context_stack.pop if line.strip == "end" && !context_stack.empty?
             end
 
-            # Track exiting blocks
-            context_stack.pop if line.strip == "end" && !context_stack.empty?
-          end
-
-          File.write(formula_path, lines.join)
-          RUBY
+            File.write(formula_path, lines.join)
+            RUBY
+          fi
 
       - name: Commit and push
         if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
