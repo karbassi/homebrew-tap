@@ -1,6 +1,6 @@
 cask "jerboa" do
-  version "1.4.0-beta.1"
-  sha256 "fc90b9e9ac05c293336ece2a7b9a4cc59f02bb967e4c044048a53cb32a5dd1c9"
+  version "1.4.0-beta.2"
+  sha256 "f176205abb73ebdd0d45c007508dc290889b37b2b0f5dac055829cc0560c9b8c"
 
   url "https://github.com/karbassi/jerboa/releases/download/v#{version}/Jerboa.zip"
   name "Jerboa"
