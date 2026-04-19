@@ -48,7 +48,7 @@ jobs:
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         if: steps.should_run.outputs.run == 'true'
 
       - name: Check for updates
@@ -201,7 +201,7 @@ jobs:
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         if: steps.should_run.outputs.run == 'true'
 
       - name: Check for updates
