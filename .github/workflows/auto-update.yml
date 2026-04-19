@@ -167,6 +167,10 @@ jobs:
           LINUX_ARM64: ${{ steps.sha.outputs.linux_arm64 }}
           LINUX_X86_64: ${{ steps.sha.outputs.linux_x86_64 }}
 
+      - name: Validate with brew style
+        if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
+        run: brew style "Formula/${{ matrix.formula }}.rb"
+
       - name: Commit and push
         if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
         run: |
@@ -174,6 +178,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add "Formula/${{ matrix.formula }}.rb"
           git commit -m "${{ matrix.formula }} ${{ steps.check.outputs.latest }}"
+          git pull --rebase origin main
           git push origin main
 
   update-casks:
@@ -243,6 +248,10 @@ jobs:
           sed -i "s/version \".*\"/version \"${{ steps.check.outputs.latest }}\"/" "$CASK"
           sed -i "s/sha256 \".*\"/sha256 \"${{ steps.check.outputs.sha }}\"/" "$CASK"
 
+      - name: Validate with brew style
+        if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
+        run: brew style "Casks/${{ matrix.cask }}.rb"
+
       - name: Commit and push
         if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
         run: |
@@ -250,4 +259,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add "Casks/${{ matrix.cask }}.rb"
           git commit -m "${{ matrix.cask }} ${{ steps.check.outputs.latest }}"
+          git pull --rebase origin main
           git push origin main
