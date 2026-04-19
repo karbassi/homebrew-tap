@@ -1,6 +1,8 @@
 name: Auto-update Formulas and Casks
 
 on:
+  schedule:
+    - cron: '17 10 * * *'
   repository_dispatch:
     types: [release]
   workflow_dispatch:
@@ -183,6 +185,9 @@ jobs:
           - cask: jerboa
             repo: karbassi/jerboa
             asset: Jerboa.zip
+          - cask: debriddownloader
+            repo: CasaVargas/DebridDownloader
+            asset: DebridDownloader_{version}_aarch64.dmg
     steps:
       - name: Check if this cask should run
         id: should_run
@@ -220,9 +225,10 @@ jobs:
             exit 0
           fi
 
-          SHA=$(gh api "repos/$REPO/releases/latest" --jq '.assets[] | select(.name == "${{ matrix.asset }}") | .digest' | sed 's/sha256://')
+          ASSET_NAME=$(echo "${{ matrix.asset }}" | sed "s/{version}/$LATEST/g")
+          SHA=$(gh api "repos/$REPO/releases/latest" --jq ".assets[] | select(.name == \"$ASSET_NAME\") | .digest" | sed 's/sha256://')
           if [ -z "$SHA" ] || [ ${#SHA} -ne 64 ]; then
-            echo "::error::Invalid SHA256: '$SHA'"
+            echo "::error::Invalid SHA256 for '$ASSET_NAME': '$SHA'"
             exit 1
           fi
 
