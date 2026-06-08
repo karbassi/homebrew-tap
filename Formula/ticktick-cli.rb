@@ -35,4 +35,3 @@ class TicktickCli < Formula
     assert_match "ticktick-cli", shell_output("#{bin}/ticktick-cli --version")
   end
 end
-

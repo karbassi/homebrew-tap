@@ -5,12 +5,18 @@ class AppleVoiceMemosCli < Formula
   license "MIT"
 
   on_macos do
-    url "https://github.com/karbassi/apple-voice-memos-cli/releases/download/v#{version}/apple-voice-memos-cli-v#{version}-macos-universal.tar.gz"
-    sha256 "17ca007698d9203d482da3f10fd14cc6fa127d1f74863aa6293f76bd9e6f9dc4"
-
-    def install
-      bin.install "apple-voice-memos-cli"
+    on_arm do
+      url "https://github.com/karbassi/apple-voice-memos-cli/releases/download/v#{version}/apple-voice-memos-cli-v#{version}-macos-universal.tar.gz"
+      sha256 "17ca007698d9203d482da3f10fd14cc6fa127d1f74863aa6293f76bd9e6f9dc4"
     end
+    on_intel do
+      url "https://github.com/karbassi/apple-voice-memos-cli/releases/download/v#{version}/apple-voice-memos-cli-v#{version}-macos-universal.tar.gz"
+      sha256 "17ca007698d9203d482da3f10fd14cc6fa127d1f74863aa6293f76bd9e6f9dc4"
+    end
+  end
+
+  def install
+    bin.install "apple-voice-memos-cli"
   end
 
   test do

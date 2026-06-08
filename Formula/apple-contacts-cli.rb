@@ -5,12 +5,18 @@ class AppleContactsCli < Formula
   license "MIT"
 
   on_macos do
-    url "https://github.com/karbassi/apple-contacts-cli/releases/download/v0.4.0/apple-contacts-cli-v0.4.0-macos-universal.tar.gz"
-    sha256 "178ee7a9e960fafb3d4508430073b36bddcd33ca716ce16af77b6e3b9012ea25"
-
-    def install
-      bin.install "apple-contacts-cli"
+    on_arm do
+      url "https://github.com/karbassi/apple-contacts-cli/releases/download/v#{version}/apple-contacts-cli-v#{version}-macos-universal.tar.gz"
+      sha256 "178ee7a9e960fafb3d4508430073b36bddcd33ca716ce16af77b6e3b9012ea25"
     end
+    on_intel do
+      url "https://github.com/karbassi/apple-contacts-cli/releases/download/v#{version}/apple-contacts-cli-v#{version}-macos-universal.tar.gz"
+      sha256 "178ee7a9e960fafb3d4508430073b36bddcd33ca716ce16af77b6e3b9012ea25"
+    end
+  end
+
+  def install
+    bin.install "apple-contacts-cli"
   end
 
   test do

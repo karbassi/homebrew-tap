@@ -5,13 +5,13 @@ class NotesMd < Formula
 
   on_macos do
     on_arm do
-      url "https://github.com/karbassi/homebrew-tap/releases/download/notes-md-v0.0.1/notes-md-v0.0.1-arm64.tar.gz"
+      url "https://github.com/karbassi/homebrew-tap/releases/download/notes-md-v#{version}/notes-md-v#{version}-arm64.tar.gz"
       sha256 "af6e710e8bbcc2bf81274ec800fa5818f675e2f8eee1718a557f4ad3ae4bbe18"
-
-      def install
-        bin.install "notes-md"
-      end
     end
+  end
+
+  def install
+    bin.install "notes-md"
   end
 
   def caveats
@@ -39,7 +39,7 @@ class NotesMd < Formula
   end
 
   test do
-    assert_predicate bin/"notes-md", :exist?
+    assert_path_exists bin/"notes-md"
     assert_predicate bin/"notes-md", :executable?
   end
 end

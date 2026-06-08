@@ -1,6 +1,6 @@
 # Homebrew Tap
 
-Custom Homebrew formulas by [@karbassi](https://github.com/karbassi).
+Custom Homebrew formulae and casks by [@karbassi](https://github.com/karbassi).
 
 ## Installation
 
@@ -8,21 +8,22 @@ Custom Homebrew formulas by [@karbassi](https://github.com/karbassi).
 brew tap karbassi/tap
 ```
 
-## Formulas
+## Formulae
 
-| Formula | Description |
-|---------|-------------|
-| [cc-statusline](https://github.com/karbassi/cc-status-line) | Lightweight, fast status line for Claude Code CLI |
-| [loom](https://github.com/karbassi/loom-api) | CLI for managing Loom videos |
+| Formula | Description | Install |
+|---------|-------------|---------|
+| [apple-contacts-cli](https://github.com/karbassi/apple-contacts-cli) | Resolve phone numbers to macOS contact names | `brew install karbassi/tap/apple-contacts-cli` |
+| [apple-voice-memos-cli](https://github.com/karbassi/apple-voice-memos-cli) | Extract transcripts from Apple Voice Memos | `brew install karbassi/tap/apple-voice-memos-cli` |
+| [cc-statusline](https://github.com/karbassi/cc-status-line) | Lightweight, fast status line for Claude Code CLI | `brew install karbassi/tap/cc-statusline` |
+| [git-hist](https://github.com/karbassi/git-hist) | Quickly browse the git history of files on a terminal | `brew install karbassi/tap/git-hist` |
+| [loom](https://github.com/karbassi/loom-api) | CLI for managing Loom videos | `brew install karbassi/tap/loom` |
+| [notes-md](https://github.com/karbassi) | Inline Markdown expansion for Apple Notes (background daemon) | `brew install karbassi/tap/notes-md` |
+| [ticktick-cli](https://github.com/karbassi/ticktick-cli) | CLI for TickTick task management | `brew install karbassi/tap/ticktick-cli` |
 
-### cc-statusline
+## Casks
 
-```bash
-brew install karbassi/tap/cc-statusline
-```
-
-### loom
-
-```bash
-brew install karbassi/tap/loom
-```
+| Cask | Description | Install |
+|------|-------------|---------|
+| [clearly](https://github.com/Shpigford/clearly) | Markdown editor | `brew install --cask karbassi/tap/clearly` |
+| [debriddownloader](https://github.com/CasaVargas/DebridDownloader) | Real-Debrid download manager with Jellyfin/Plex auto-organize | `brew install --cask karbassi/tap/debriddownloader` |
+| [jerboa](https://github.com/karbassi/jerboa) | Lightweight markdown viewer | `brew install --cask karbassi/tap/jerboa` |
