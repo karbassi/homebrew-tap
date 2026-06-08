@@ -15,6 +15,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: auto-update-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   update-formulas:
     runs-on: macos-latest
@@ -22,6 +26,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - formula: apple-contacts-cli
+            repo: karbassi/apple-contacts-cli
+            asset_prefix: apple-contacts-cli
+            universal: true
           - formula: apple-voice-memos-cli
             repo: karbassi/apple-voice-memos-cli
             asset_prefix: apple-voice-memos-cli
@@ -29,6 +37,9 @@ jobs:
           - formula: cc-statusline
             repo: karbassi/cc-status-line
             asset_prefix: cc-statusline
+          - formula: git-hist
+            repo: karbassi/git-hist
+            asset_prefix: git-hist
           - formula: loom
             repo: karbassi/loom-api
             asset_prefix: loom
@@ -187,6 +198,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - cask: clearly
+            repo: Shpigford/clearly
+            asset: Clearly.dmg
           - cask: jerboa
             repo: karbassi/jerboa
             asset: Jerboa.zip

@@ -1,6 +1,6 @@
 cask "clearly" do
-  version "1.14.0"
-  sha256 "7c90e06841cac21aefdd034c7f58ecb43a6dbbf828d5a76a66fc82e87a7f2813"
+  version "3.2.0"
+  sha256 "6b73afd1fb2d80c4d99a6fac1106df7cbebcd50df7be4d16e69058107eb0befb"
 
   url "https://github.com/Shpigford/clearly/releases/download/v#{version}/Clearly.dmg"
   name "Clearly"
