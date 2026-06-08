@@ -8,7 +8,7 @@ cask "debriddownloader" do
   homepage "https://github.com/CasaVargas/DebridDownloader"
 
   depends_on arch: :arm64
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "DebridDownloader.app"
 

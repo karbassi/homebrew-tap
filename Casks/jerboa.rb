@@ -4,10 +4,10 @@ cask "jerboa" do
 
   url "https://github.com/karbassi/jerboa/releases/download/v#{version}/Jerboa.zip"
   name "Jerboa"
-  desc "Lightweight markdown viewer for macOS"
+  desc "Lightweight markdown viewer"
   homepage "https://github.com/karbassi/jerboa"
 
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "Jerboa.app"
   binary "#{appdir}/Jerboa.app/Contents/MacOS/Jerboa", target: "jerboa"

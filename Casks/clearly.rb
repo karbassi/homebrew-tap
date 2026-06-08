@@ -4,10 +4,10 @@ cask "clearly" do
 
   url "https://github.com/Shpigford/clearly/releases/download/v#{version}/Clearly.dmg"
   name "Clearly"
-  desc "Markdown editor for macOS"
+  desc "Markdown editor"
   homepage "https://github.com/Shpigford/clearly"
 
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "Clearly.app"
 
