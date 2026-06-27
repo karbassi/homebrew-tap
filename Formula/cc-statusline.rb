@@ -1,24 +1,24 @@
 class CcStatusline < Formula
   desc "Lightweight, fast status line for Claude Code CLI"
   homepage "https://github.com/karbassi/cc-status-line"
-  version "0.1.7"
+  version "0.1.8"
   license "MIT"
 
   on_macos do
     on_arm do
       url "https://github.com/karbassi/cc-status-line/releases/download/v#{version}/cc-statusline-macos-arm64.tar.gz"
-      sha256 "20baa3ba5d5a3152a420da9ccd7ba3bf5c00d99a5124ce4abc62478b4b0afc29"
+      sha256 "ca667516fa458aaa23a853bcecfa5608c818340aa22a907cecaa42cbac6b246d"
     end
     on_intel do
       url "https://github.com/karbassi/cc-status-line/releases/download/v#{version}/cc-statusline-macos-x86_64.tar.gz"
-      sha256 "38aabcc0de696d24cb13552202a786c64b399154239d6e63173a856a82e2c8c2"
+      sha256 "d642af05e1f4d356fa97ef5c7ba048db355a0b7cfd77c94472aa75972e148fcd"
     end
   end
 
   on_linux do
     on_intel do
       url "https://github.com/karbassi/cc-status-line/releases/download/v#{version}/cc-statusline-linux-x86_64.tar.gz"
-      sha256 "59793a69acc81d79f1bb9f8de302bed1c7ed922417b4ec233fc080aab5a3934c"
+      sha256 "87ba78fa7e87e0f9f3270df11b431985f61b624dca19c1457edd5f77b7fede3a"
     end
   end
 
