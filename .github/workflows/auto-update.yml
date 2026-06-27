@@ -142,10 +142,12 @@ jobs:
           LATEST="${{ steps.check.outputs.latest }}"
           UNIVERSAL="${{ matrix.universal }}"
 
-          sed -i "s/version \"$CURRENT\"/version \"$LATEST\"/" "$FORMULA"
+          # NOTE: runner is macOS (BSD sed); -i requires an explicit (empty)
+          # backup suffix arg, else the filename is parsed as the script.
+          sed -i '' "s/version \"$CURRENT\"/version \"$LATEST\"/" "$FORMULA"
 
           if [ "$UNIVERSAL" = "true" ]; then
-            sed -i "s/sha256 \"[a-fA-F0-9]\{64\}\"/sha256 \"${{ steps.sha.outputs.universal }}\"/" "$FORMULA"
+            sed -i '' "s/sha256 \"[a-fA-F0-9]\{64\}\"/sha256 \"${{ steps.sha.outputs.universal }}\"/" "$FORMULA"
           else
           ruby <<'RUBY'
           formula = ENV.fetch("FORMULA")
@@ -275,8 +277,9 @@ jobs:
         if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
         run: |
           CASK="Casks/${{ matrix.cask }}.rb"
-          sed -i "s/version \".*\"/version \"${{ steps.check.outputs.latest }}\"/" "$CASK"
-          sed -i "s/sha256 \".*\"/sha256 \"${{ steps.check.outputs.sha }}\"/" "$CASK"
+          # NOTE: macOS (BSD) sed needs an explicit empty backup suffix after -i.
+          sed -i '' "s/version \".*\"/version \"${{ steps.check.outputs.latest }}\"/" "$CASK"
+          sed -i '' "s/sha256 \".*\"/sha256 \"${{ steps.check.outputs.sha }}\"/" "$CASK"
 
       - name: Validate with brew style
         if: steps.should_run.outputs.run == 'true' && steps.check.outputs.updated == 'true'
