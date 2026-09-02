@@ -12,6 +12,7 @@ brew tap karbassi/tap
 
 | Formula | Description | Install |
 |---------|-------------|---------|
+| [airconnect](https://github.com/philippe44/AirConnect) | AirPlay bridge to UPnP/Sonos & Chromecast (`brew services start` runs the Sonos bridge) | `brew install karbassi/tap/airconnect` |
 | [apple-contacts-cli](https://github.com/karbassi/apple-contacts-cli) | Resolve phone numbers to macOS contact names | `brew install karbassi/tap/apple-contacts-cli` |
 | [apple-voice-memos-cli](https://github.com/karbassi/apple-voice-memos-cli) | Extract transcripts from Apple Voice Memos | `brew install karbassi/tap/apple-voice-memos-cli` |
 | [cc-statusline](https://github.com/karbassi/cc-status-line) | Lightweight, fast status line for Claude Code CLI | `brew install karbassi/tap/cc-statusline` |
