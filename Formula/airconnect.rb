@@ -33,7 +33,10 @@ class Airconnect < Formula
   # (Sonos connects to the Wi-Fi IP while acolyte replies via the wired default
   # route). Host-specific — adjust or drop -b on any other machine.
   service do
-    run [opt_bin/"airupnp", "-Z", "-b", "en5", "-l", "1000:2000"]
+    # -c mp3: transcode to MP3 instead of the default FLAC. The Office Play:1 is
+    # on congested 2.4GHz Wi-Fi and can't sustain FLAC (~900kbps) — its buffer
+    # starves and playback pauses. MP3 fits the link. See the airconnect playbook.
+    run [opt_bin/"airupnp", "-Z", "-b", "en5", "-c", "mp3", "-l", "1000:2000"]
     keep_alive true
     log_path var/"log/airupnp.log"
     error_log_path var/"log/airupnp.log"
