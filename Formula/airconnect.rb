@@ -27,8 +27,13 @@ class Airconnect < Formula
   # `brew services start airconnect` runs the UPnP/Sonos bridge.
   # -Z keeps it in the foreground for launchd; -l 1000:2000 is the
   # latency the AirConnect docs require for Sonos & Heos players.
+  # -b en5 binds acolyte's WIRED interface. acolyte is dual-homed (Wi-Fi en0
+  # + wired en5 on the same subnet); without -b, airupnp auto-picks the Wi-Fi
+  # failover iface and Sonos audio stalls after ~30s from asymmetric routing
+  # (Sonos connects to the Wi-Fi IP while acolyte replies via the wired default
+  # route). Host-specific — adjust or drop -b on any other machine.
   service do
-    run [opt_bin/"airupnp", "-Z", "-l", "1000:2000"]
+    run [opt_bin/"airupnp", "-Z", "-b", "en5", "-l", "1000:2000"]
     keep_alive true
     log_path var/"log/airupnp.log"
     error_log_path var/"log/airupnp.log"
