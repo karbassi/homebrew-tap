@@ -20,6 +20,7 @@ brew tap karbassi/tap
 | [loom](https://github.com/karbassi/loom-api) | CLI for managing Loom videos | `brew install karbassi/tap/loom` |
 | [notes-md](https://github.com/karbassi/notes-md) | Inline Markdown expansion for Apple Notes (background daemon) | `brew install karbassi/tap/notes-md` |
 | [ticktick-cli](https://github.com/karbassi/ticktick-cli) | CLI for TickTick task management | `brew install karbassi/tap/ticktick-cli` |
+| [ud](https://github.com/karbassi/ud) | Resolve a fish `prompt_pwd`-style shortened path back to its full filesystem path | `brew install karbassi/tap/ud` |
 
 ## Casks
 
@@ -28,3 +29,4 @@ brew tap karbassi/tap
 | [clearly](https://github.com/Shpigford/clearly) | Markdown editor | `brew install --cask karbassi/tap/clearly` |
 | [debriddownloader](https://github.com/CasaVargas/DebridDownloader) | Real-Debrid download manager with Jellyfin/Plex auto-organize | `brew install --cask karbassi/tap/debriddownloader` |
 | [jerboa](https://github.com/karbassi/jerboa) | Lightweight markdown viewer | `brew install --cask karbassi/tap/jerboa` |
+| [nuvio](https://github.com/NuvioMedia/NuvioDesktop) | Media streaming desktop app | `brew install --cask karbassi/tap/nuvio` |
