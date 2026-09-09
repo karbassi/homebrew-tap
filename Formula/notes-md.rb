@@ -2,6 +2,7 @@ class NotesMd < Formula
   desc "Inline Markdown expansion for Apple Notes (background daemon)"
   homepage "https://github.com/karbassi/notes-md"
   version "0.0.1"
+  license "MIT"
 
   on_macos do
     on_arm do
