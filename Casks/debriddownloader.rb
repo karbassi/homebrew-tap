@@ -1,6 +1,6 @@
 cask "debriddownloader" do
-  version "1.7.1"
-  sha256 "f03aa6885feb4a4dc0ed65b050b31e10811b15a500adfdf302014e8cbd00392b"
+  version "1.7.2"
+  sha256 "439c306fa99f49be1b1178f202cf9d874c4166bf807578dbf02c3107c1a5996a"
 
   url "https://github.com/CasaVargas/DebridDownloader/releases/download/v#{version}/DebridDownloader_#{version}_aarch64.dmg"
   name "DebridDownloader"
