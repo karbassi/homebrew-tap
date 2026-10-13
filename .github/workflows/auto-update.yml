@@ -217,6 +217,9 @@ jobs:
           - cask: debriddownloader
             repo: CasaVargas/DebridDownloader
             asset: DebridDownloader_{version}_aarch64.dmg
+          - cask: undertone
+            repo: karbassi/undertone
+            asset: Undertone.zip
     steps:
       - name: Check if this cask should run
         id: should_run
