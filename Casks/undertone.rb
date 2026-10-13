@@ -1,6 +1,6 @@
 cask "undertone" do
-  version "0.2.0-rc.1"
-  sha256 "96224e8898422072a6805a5c8fe3e72c92a1714722e6ddcba9b774c43c4cfb01"
+  version "0.2.0"
+  sha256 "eaf74ab52ce31214b961793842605ff4e7842b370cb86000c962f888d8103477"
 
   url "https://github.com/karbassi/undertone/releases/download/v#{version}/Undertone.zip"
   name "Undertone"
