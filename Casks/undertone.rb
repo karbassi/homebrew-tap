@@ -7,7 +7,6 @@ cask "undertone" do
   desc "Menu bar YouTube audio player that resumes long mixes"
   homepage "https://github.com/karbassi/undertone"
 
-  depends_on formula: "deno"
   depends_on formula: "yt-dlp"
   depends_on macos: :tahoe
 
