@@ -30,4 +30,5 @@ brew tap karbassi/tap
 | [debriddownloader](https://github.com/CasaVargas/DebridDownloader) | Real-Debrid download manager with Jellyfin/Plex auto-organize | `brew install --cask karbassi/tap/debriddownloader` |
 | [jerboa](https://github.com/karbassi/jerboa) | Lightweight markdown viewer | `brew install --cask karbassi/tap/jerboa` |
 | [nuvio](https://github.com/NuvioMedia/NuvioDesktop) | Media streaming desktop app | `brew install --cask karbassi/tap/nuvio` |
+| [sill](https://github.com/Saffsanity/sill) | Stream desktop windows to iPhone and iPad | `brew install --cask karbassi/tap/sill` |
 | [undertone](https://github.com/karbassi/undertone) | Menu bar YouTube audio player that resumes long mixes | `brew install --cask karbassi/tap/undertone` |
