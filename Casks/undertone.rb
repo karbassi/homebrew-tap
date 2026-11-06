@@ -18,5 +18,9 @@ cask "undertone" do
 
   uninstall quit: "com.jverissimo.undertone"
 
-  zap trash: "~/Library/Preferences/com.jverissimo.undertone.plist"
+  zap trash: [
+    "~/Library/Caches/com.jverissimo.undertone",
+    "~/Library/HTTPStorages/com.jverissimo.undertone",
+    "~/Library/Preferences/com.jverissimo.undertone.plist",
+  ]
 end
