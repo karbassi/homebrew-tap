@@ -8,7 +8,7 @@ cask "sorl" do
   homepage "https://github.com/karbassi/sorl"
 
   depends_on formula: "yt-dlp"
-  depends_on macos: :tahoe
+  depends_on macos: :sequoia
 
   app "Sorl.app"
 
