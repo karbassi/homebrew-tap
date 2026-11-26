@@ -12,10 +12,6 @@ cask "sorl" do
 
   app "Sorl.app"
 
-  postflight_steps do
-    run "/usr/bin/xattr", args: ["-d", "com.apple.quarantine", "{{appdir}}/Sorl.app"]
-  end
-
   uninstall quit: "com.karbassi.sorl"
 
   zap trash: [
