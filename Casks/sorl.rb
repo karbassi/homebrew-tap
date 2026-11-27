@@ -1,6 +1,6 @@
 cask "sorl" do
-  version "1.5.1"
-  sha256 "fae4073064876dc438df878beaf398ceb5be309412d110b56d3d59c970cb6d6d"
+  version "1.6.0"
+  sha256 "f1c22e974472ece62512fe8dd442664741dbfffabeab32ee850c6c72cb7c0027"
 
   url "https://github.com/karbassi/sorl/releases/download/v#{version}/Sorl.zip"
   name "Sorl"
